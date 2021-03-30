@@ -7,12 +7,12 @@ The URCap runs on port: 40408 on a daemon. Following script functions is added b
 *	**tool_modbus_write(register_address, data)** both parameter is an int.
 *	**tool_modbus_read(register_address)** parameter is an int.
 
-The RS485 settings is controlled with the built in function:
+The RS485 settings is controlled with the built in function
 ```python
-set\_tool\_communication(_enabled_,_baud\_rate_,_parity_,_stop\_bits_,_rx\_idle\_chars_,_tx\_idle\_chars_)
+set_tool_communication(enabled,baud_rate,parity,stop_bits,rx_idle_chars,tx_idle_chars)
 ```
 
-And tool supply voltage is controlled with:
+And tool supply voltage is controlled with
 ```python
-set\_tool\_voltage(_voltage_)
+set_tool_voltage(voltage)
 ```
