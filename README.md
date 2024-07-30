@@ -16,15 +16,14 @@ And tool supply voltage is controlled with:
 
     set_tool_voltage(voltage)
 
-## An example script program (with OnRobot VGP20):
-    set_tool_voltage(24)
-    set_tool_communication(True, 1000000, 2, 1, 1.5, 3.5)
+## An example script program (Bojke BL 400N):
+    init_tool_modbus(1)
 
-    init_tool_modbus(65)
-
-    while True:
-                   tool_modbus_write(0,60)
-                   sleep(1)
-                   tool_modbus_write(0,0)
-                   sleep(1)
+    if get_tool_digital_out(1) == True:
+        textmsg("Setting range")
+        var1 = tool_modbus_read(0,2)
+        var2 = tool_modbus_increment(var1,50)
+        var3 = tool_modbus_increment(var1,-50)
+        var4 = tool_modbus_write(12,var2)
+        var5 = tool_modbus_write(13,var3)
     end
