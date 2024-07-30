@@ -37,7 +37,7 @@ public class DaemonInstallationNodeService
 	@Override
 	public DaemonInstallationNodeContribution createInstallationNode(InstallationAPIProvider apiProvider,
 			DaemonInstallationNodeView view, DataModel model, CreationContext context) {
-		return new DaemonInstallationNodeContribution(apiProvider, view, model, context,this.modbusDaemonService);
+		return new DaemonInstallationNodeContribution(apiProvider, view, model, this.modbusDaemonService);
 	}
 
 }

@@ -2,6 +2,8 @@ package com.ur.thph.modbus_urcap.impl;
 
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -45,22 +47,22 @@ public class DaemonInstallationNodeView implements SwingInstallationNodeView<Dae
 		this.startButton.setSize(dimension);
 		this.stopButton.setSize(dimension);
 		
+		startButton.setFocusable(false);stopButton.setFocusable(false);
 		
-		
-		startButton.addChangeListener(new ChangeListener() {
-			
-			@Override
-			public void stateChanged(ChangeEvent e) {
-				contribution.onStartClick();
+		startButton.addMouseListener(new MouseAdapter() {
+			public void mousePressed(MouseEvent e) {
+				if(startButton.isEnabled()) {
+					contribution.onStartClick();
+				}
 			}
 		});
 		
 		
-		stopButton.addChangeListener(new ChangeListener() {
-			
-			@Override
-			public void stateChanged(ChangeEvent e) {
-				contribution.onStopClick();
+		stopButton.addMouseListener(new MouseAdapter() {
+			public void mousePressed(MouseEvent e) {
+				if(stopButton.isEnabled()) {
+					contribution.onStopClick();
+				}
 			}
 		});
 		

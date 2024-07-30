@@ -10,6 +10,10 @@ public class ModbusDaemonService implements DaemonService {
 
 	private DaemonContribution daemonContribution;
 	
+	public ModbusDaemonService() {
+		// TODO Auto-generated constructor stub
+	}
+	
 	@Override
 	public void init(DaemonContribution daemonContribution) {
 		this.daemonContribution = daemonContribution;

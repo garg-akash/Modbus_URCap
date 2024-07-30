@@ -3,6 +3,10 @@ package com.ur.thph.modbus_urcap.impl;
 import java.awt.EventQueue;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import com.ur.urcap.api.contribution.DaemonContribution;
 import com.ur.urcap.api.contribution.InstallationNodeContribution;
@@ -15,12 +19,16 @@ public class DaemonInstallationNodeContribution implements InstallationNodeContr
 	
 	private final ModbusDaemonService modbusDaemonService;
 	private ModbusDaemonInterface modbusDaemonInterface;
+	private static final long DAEMON_TIME_OUT_NANO_SECONDS = TimeUnit.SECONDS.toNanos(20);
+	private static final long RETRY_TIME_TO_WAIT_MILLI_SECONDS = TimeUnit.SECONDS.toMillis(5);
 	
 	private final DaemonInstallationNodeView view;
 	
 	private Timer uiTimer;
 	private boolean pauseTimer;
 	private DataModel model;
+	private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
+	private ScheduledFuture<?> scheduleAtFixedRate;
 	
 	private static final int PORT = 40408;
 	private static final String HOST = "127.0.0.1";
@@ -30,11 +38,14 @@ public class DaemonInstallationNodeContribution implements InstallationNodeContr
 	
 	
 
-	public DaemonInstallationNodeContribution(InstallationAPIProvider apiProvider, DaemonInstallationNodeView view,
-			DataModel model, CreationContext context, ModbusDaemonService modbusDaemonService) {
+	public DaemonInstallationNodeContribution(InstallationAPIProvider apiProvider, 
+											  DaemonInstallationNodeView view,
+											  DataModel model, 
+											  ModbusDaemonService modbusDaemonService
+											  ) {
 		
 		this.modbusDaemonService = modbusDaemonService;
-		this.modbusDaemonInterface = new ModbusDaemonInterface(HOST, PORT);
+		this.modbusDaemonInterface = new ModbusDaemonInterface();
 		this.pauseTimer = false;
 		this.model = model;
 		this.view = view;
@@ -43,37 +54,36 @@ public class DaemonInstallationNodeContribution implements InstallationNodeContr
 	}
 
 	private boolean getCB() {
-		return Boolean.valueOf((model.get(ENABLED_KEY, true)));
+		return (model.get(ENABLED_KEY, true));
 	}
 
 	@Override
 	public void openView() {
-		if (getCB() && (DaemonContribution.State.STOPPED == this.modbusDaemonService.getDaemon().getState())) {
-			this.modbusDaemonService.getDaemon().start();
+//		modbusDaemonInterface.startMonitorThread();
+		
+		
+		if (getCB() && (DaemonContribution.State.STOPPED.equals(this.modbusDaemonService.getDaemon().getState()))) {
+			System.out.println("Daemon state: STOPPED, apply starting daemon.");
+			applyDesiredDaemonStatus();
 		} else if (getCB() == false) {
 			this.modbusDaemonService.getDaemon().stop();
 		}
 
-		// UI updates from non-GUI threads must use EventQueue.invokeLater (or
-		// SwingUtilities.invokeLater)
+		// UI updates from non-GUI threads must use EventQueue.invokeLater (or SwingUtilities.invokeLater)
 		uiTimer = new Timer(true);
 		uiTimer.schedule(new TimerTask() {
+			
 			@Override
 			public void run() {
-				EventQueue.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						updateUI();
-					}
-				});
+				// TODO Auto-generated method stub
+				updateUI();
 			}
 		}, 0, 1000);
-
 	}
 
 	@Override
 	public void closeView() {
-		if (uiTimer != null) {
+		if(uiTimer != null) {
 			uiTimer.cancel();
 		}
 
@@ -81,9 +91,10 @@ public class DaemonInstallationNodeContribution implements InstallationNodeContr
 
 	@Override
 	public void generateScript(ScriptWriter writer) {
-		writer.assign(XMLRPC_VARIABLE, "rpc_factory(\"xmlrpc\", \"http://127.0.0.1:40408/RPC2\")");
+		//writer.assign(XMLRPC_VARIABLE, "rpc_factory(\"xmlrpc\", \"http://127.0.0.1:40408/RPC2\")");
+		writer.assign(XMLRPC_VARIABLE, "rpc_factory(\"xmlrpc\", \"" + ModbusDaemonInterface.getDaemonUrl() + "\")");
 		
-		writer.appendLine("isConnected = modbus_xmlrpc.reachable()");
+		writer.appendLine("isConnected = modbus_xmlrpc.isReachable()");
 		writer.appendLine("if ( isConnected != True):");
 		writer.appendLine("popup(\"Modbus xmlrpc is not available!\")");
 		writer.appendLine("end");
@@ -101,36 +112,30 @@ public class DaemonInstallationNodeContribution implements InstallationNodeContr
 		writer.appendLine("end");
 
 		//Modbus write method: ex --> tool_modbus_read(258)
-		writer.appendLine("def tool_modbus_read(register_address):");
-		writer.appendLine("local response = modbus_xmlrpc.tool_modbus_read(register_address)");
+		writer.appendLine("def tool_modbus_read(register_address,register_number):");
+		writer.appendLine("local response = modbus_xmlrpc.tool_modbus_read(register_address,register_number)");
+		writer.appendLine("return response");
+		writer.appendLine("end");
+
+		//Modbus read method: ex --> tool_modbus_increment(500, 50)
+		writer.appendLine("def tool_modbus_increment(data,inc):");
+		writer.appendLine("local response = modbus_xmlrpc.tool_modbus_increment(data,inc)");
 		writer.appendLine("return response");
 		writer.appendLine("end");
 	}
 	
 	private void updateUI() {
-		DaemonContribution.State state = getDaemonState();
-
-		if (state == DaemonContribution.State.RUNNING || state == DaemonContribution.State.ERROR) {
+		String text = "";
+		if(modbusDaemonInterface.isDaemonReachable()){
+			text = "Daemon is running.";
 			view.setStartButtonEnabled(false);
 			view.setStopButtonEnabled(true);
 		} else {
+			text = "Daemon is not running.";
 			view.setStartButtonEnabled(true);
 			view.setStopButtonEnabled(false);
 		}
-
-		String text = "";
-		switch (state) {
-		case RUNNING:
-			text = "My Daemon Swing runs";
-			break;
-		case STOPPED:
-			text = "My Daemon Swing stopped";
-			break;
-		case ERROR:
-			text = "My Daemon Swing failed";
-			break;
-		}
-
+		
 		view.setStatusLabel(text);
 	}
 	
@@ -139,8 +144,8 @@ public class DaemonInstallationNodeContribution implements InstallationNodeContr
 		return this.modbusDaemonService.getDaemon().getState();
 
 	}
-	private Boolean isDaemonEnabled() {
-		return  Boolean.valueOf(model.get(ENABLED_KEY, true)); // This daemon is enabled by default
+	private boolean isDaemonEnabled() {
+		return  model.get(ENABLED_KEY, true); // This daemon is enabled by default
 	}
 
 	public void onStartClick() {
@@ -162,14 +167,13 @@ public class DaemonInstallationNodeContribution implements InstallationNodeContr
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
-				if (isDaemonEnabled().booleanValue()) {
+				if (isDaemonEnabled()) {
 					// Download the daemon settings to the daemon process on initial start for
 					// real-time preview purposes
 					System.out.println("Starting daemon");
 					try {
-						pauseTimer = true;
-						awaitDaemonRunning(5000);
-						boolean test = modbusDaemonInterface.isReachable();
+						awaitDaemonRunning(10000);
+						boolean test = modbusDaemonInterface.isDaemonReachable();
 						if(test) {
 							System.out.println("Daemon is running");
 						}else {
@@ -177,9 +181,8 @@ public class DaemonInstallationNodeContribution implements InstallationNodeContr
 						}
 					} catch (Exception e) {
 						System.err.println("Could not reach the daemon process.");
-					} finally {
-						pauseTimer = false;
-					}
+						Thread.currentThread().interrupt();
+					} 
 				} else {
 					modbusDaemonService.getDaemon().stop();
 				}
@@ -188,14 +191,10 @@ public class DaemonInstallationNodeContribution implements InstallationNodeContr
 	}
 
 	private void awaitDaemonRunning(long timeOutMilliSeconds) throws InterruptedException {
-		this.modbusDaemonService.getDaemon().start();
+		modbusDaemonService.getDaemon().start();
 		long endTime = System.nanoTime() + timeOutMilliSeconds * 1000L * 1000L;
-		while (System.nanoTime() < endTime
-				&& (this.modbusDaemonService.getDaemon().getState() != DaemonContribution.State.RUNNING
-						|| !modbusDaemonInterface.isReachable())) {
-
+		while(System.nanoTime() < endTime && (modbusDaemonService.getDaemon().getState() != DaemonContribution.State.RUNNING || !modbusDaemonInterface.isDaemonReachable())) {
 			Thread.sleep(100);
-
 		}
 	}
 
