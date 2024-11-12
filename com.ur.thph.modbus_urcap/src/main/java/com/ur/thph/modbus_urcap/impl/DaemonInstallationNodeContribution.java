@@ -122,6 +122,12 @@ public class DaemonInstallationNodeContribution implements InstallationNodeContr
 		writer.appendLine("local response = modbus_xmlrpc.tool_modbus_increment(data,inc)");
 		writer.appendLine("return response");
 		writer.appendLine("end");
+
+		//Modbus read method: ex --> is_modbus_initialized()
+		writer.appendLine("def is_modbus_initialized():");
+		writer.appendLine("local response = modbus_xmlrpc.is_modbus_initialized()");
+		writer.appendLine("return response");
+		writer.appendLine("end");
 	}
 	
 	private void updateUI() {

@@ -15,7 +15,7 @@ import serial
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from SocketServer import ThreadingMixIn
 
-isShowing = False
+isInitialized = False
 LOCALHOST = "127.0.0.1"
 
 instrument = None 
@@ -25,15 +25,21 @@ value = None
 def isReachable():
   return True
 
+def is_modbus_initialized():
+  global isInitialized
+  return isInitialized
+
 def init_modbus_communication(slaveaddress):
   global instrument
-  instrument = modbus.Instrument('/dev/ttyUSB0',slaveaddress)
-  # instrument = modbus.Instrument('/dev/ttyTool',slaveaddress)
+  global isInitialized
+  # instrument = modbus.Instrument('/dev/ttyUSB0',slaveaddress)
+  instrument = modbus.Instrument('/dev/ttyTool',slaveaddress)
   instrument.serial.baudrate = 9600
   instrument.serial.bytesize = 8
   instrument.serial.parity = serial.PARITY_NONE
   instrument.serial.stopbits = 1
   instrument.serial.timeout = 1  # seconds
+  isInitialized = True
   return True
 
 def tool_modbus_write(register_address, data):
@@ -94,6 +100,7 @@ server.register_function(init_modbus_communication,"init_modbus_communication")
 server.register_function(tool_modbus_read,"tool_modbus_read")
 server.register_function(tool_modbus_write,"tool_modbus_write")
 server.register_function(tool_modbus_increment,"tool_modbus_increment")
+server.register_function(is_modbus_initialized,"is_modbus_initialized")
 
 server.serve_forever()
 
